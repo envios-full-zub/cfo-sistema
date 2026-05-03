@@ -1366,22 +1366,79 @@ async function renderDRE(){
   document.getElementById('fonte-lanc').textContent='📋 Lançamentos — '+lancs.length+' itens · '+fF(t.total);
   document.getElementById('fonte-pending').style.display=hasPend?'block':'none';
   document.getElementById('fonte-site').style.display=mesesC.find(m=>m.canal==='site')?'block':'none';
-  function catR(dre){const cats={};lancs.filter(l=>l.linha_dre===dre).forEach(l=>{const c=l.categoria||'Geral';cats[c]=(cats[c]||0)+(l.valor||0);});return Object.entries(cats).map(([c,v])=>`<tr><td class="lbl i2">(-) ${c}</td><td class="num r">(${fF(v)})</td><td class="pct">${pc(v,fat)}</td></tr>`).join('');}
+  // DRE — função para gerar linhas expansíveis com lançamentos individuais
+  function dreRowExpandable(titulo, corTitulo, dreKey, totalVal, idPrefix){
+    const items = lancs.filter(l=>l.linha_dre===dreKey);
+    const uid_d = 'dre_'+idPrefix;
+    const subRows = items.map(l=>`
+      <tr style="background:#fafaf8">
+        <td class="lbl i2" style="font-size:11px;color:var(--ink3)">${l.descricao}${(l.obs||'').includes('pendente')?'<span style="font-size:9px;background:var(--y2);color:var(--y);padding:1px 5px;border-radius:8px;margin-left:4px">pend.</span>':''}</td>
+        <td class="num r" style="color:var(--r);font-size:11px">(${fF(l.valor||0)})</td>
+        <td class="pct" style="font-size:10px">${pc(l.valor||0,fat)}</td>
+      </tr>`).join('');
+    const totalRow=`<tr style="background:#f2f0ec"><td class="lbl i" style="font-weight:600;font-size:11px">Total ${titulo}</td><td class="num r" style="color:${corTitulo};font-weight:600">(${fF(totalVal)})</td><td class="pct">${pc(totalVal,fat)}</td></tr>`;
+    return`
+      <tr class="grp" style="cursor:pointer" onclick="(function(){var b=document.getElementById('${uid_d}');var o=b.style.display==='none';b.style.display=o?'table-row-group':'none';document.getElementById('${uid_d}_arr').style.transform=o?'rotate(90deg)':'rotate(0deg)'})()">
+        <td class="lbl" colspan="2" style="color:${corTitulo};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-top:14px">
+          ${titulo}
+          <span id="${uid_d}_arr" style="display:inline-block;font-size:10px;margin-left:6px;transition:transform .2s">▶</span>
+          <span style="font-size:10px;color:var(--ink4);font-weight:400;margin-left:6px">${items.length} lançamento${items.length!==1?'s':''} · clique para expandir</span>
+        </td>
+        <td class="pct"></td>
+      </tr>
+      <tbody id="${uid_d}" style="display:none">${subRows}${totalRow}</tbody>`;
+  }
+
+  // Encargos canal expansível
+  function dreEncargosRow(cons, mesesC){
+    const uid_e='dre_encargos';
+    const linhas=[];
+    const imp=mesesC.reduce((s,m)=>s+(m.imp||0),0);
+    const tar=mesesC.reduce((s,m)=>s+(m.tar||0),0);
+    const frV=mesesC.reduce((s,m)=>s+(m.frV||0),0);
+    const frC=mesesC.reduce((s,m)=>s+(m.frC||0),0);
+    const shM=mesesC.find(m=>m.canal==='sh');
+    const cupom=shM?.estrutura?.cupom||0;
+    const afiliado=shM?.estrutura?.afiliado||0;
+    const ajustes=shM?.estrutura?.ajustes||0;
+    if(imp>0)linhas.push({d:'Imposto s/ venda',v:imp});
+    if(tar>0)linhas.push({d:'Tarifa de venda',v:tar});
+    if(frV>0)linhas.push({d:'Frete vendedor',v:frV});
+    if(cupom>0)linhas.push({d:'Cupom desconto (Shopee)',v:cupom});
+    if(afiliado>0)linhas.push({d:'Comissão afiliado (Shopee)',v:afiliado});
+    if(ajustes>0)linhas.push({d:'(-) Ajustes Shopee',v:-ajustes,pos:true});
+    if(frC>0)linhas.push({d:'(-) Frete comprador',v:-frC,pos:true});
+    const subRows=linhas.map(l=>`
+      <tr style="background:#fafaf8">
+        <td class="lbl i2" style="font-size:11px;color:var(--ink3)">${l.d}</td>
+        <td class="num r" style="color:${l.pos?'var(--g)':'var(--r)'};font-size:11px">${l.pos?'+'+fF(-l.v):'('+fF(l.v)+')'}</td>
+        <td class="pct" style="font-size:10px">${pc(Math.abs(l.v),fat)}</td>
+      </tr>`).join('');
+    const totalEnc=cons.encargos||0;
+    return`
+      <tr style="cursor:pointer" onclick="(function(){var b=document.getElementById('${uid_e}');var o=b.style.display==='none';b.style.display=o?'table-row-group':'none';document.getElementById('${uid_e}_arr').style.transform=o?'rotate(90deg)':'rotate(0deg)'})()">
+        <td class="lbl i">(-)  Encargos canal <span id="${uid_e}_arr" style="display:inline-block;font-size:10px;margin-left:4px;transition:transform .2s;color:var(--ink4)">▶</span></td>
+        <td class="num r">(${fF(totalEnc)})</td>
+        <td class="pct">${pc(totalEnc,fat)}</td>
+      </tr>
+      <tbody id="${uid_e}" style="display:none">${subRows}<tr style="background:#f2f0ec"><td class="lbl i" style="font-weight:600;font-size:11px">Total encargos</td><td class="num r" style="color:var(--y);font-weight:600">(${fF(totalEnc)})</td><td class="pct">${pc(totalEnc,fat)}</td></tr></tbody>`;
+  }
+
   document.getElementById('dreTable').innerHTML=`
     <thead><tr><th style="text-align:left">Linha DRE</th><th class="num" style="text-align:right">Valor</th><th class="pct">%Fat</th></tr></thead>
     <tbody>
     <tr><td class="lbl">(+) Faturamento Bruto</td><td class="num g">${fF(fat)}</td><td class="pct">100%</td></tr>
     <tr class="grp"><td class="lbl" colspan="3">Custos Diretos — Canal</td></tr>
     <tr><td class="lbl i">(-) Custo produto</td><td class="num r">(${fF(cons.custo||0)})</td><td class="pct">${pc(cons.custo||0,fat)}</td></tr>
-    <tr><td class="lbl i">(-) Encargos canal</td><td class="num r">(${fF(cons.encargos||0)})</td><td class="pct">${pc(cons.encargos||0,fat)}</td></tr>
+    ${dreEncargosRow(cons,mesesC)}
     <tr class="sub"><td class="lbl">= Margem de Contribuição</td><td class="num y">${fF(mc)}</td><td class="pct" style="color:var(--y)">${pc(mc,fat)}</td></tr>
-    ${t.cmv_extra>0?`<tr class="grp"><td class="lbl" colspan="3" style="color:var(--r)">CMV Adicional</td></tr>${catR('cmv_extra')}<tr class="sub"><td class="lbl">= MC após CMV adicional</td><td class="num ${mc_liq>=0?'g':'r'}">${mc_liq>=0?fF(mc_liq):'('+fF(mc_liq)+')'}</td><td class="pct">${pc(mc_liq,fat)}</td></tr>`:''}
-    ${t.variavel>0?`<tr class="grp"><td class="lbl" colspan="3" style="color:var(--y)">Despesas Variáveis</td></tr>${catR('variavel')}`:''}
-    ${t.fixo>0?`<tr class="grp"><td class="lbl" colspan="3" style="color:var(--b)">Despesas Fixas</td></tr>${catR('fixo')}`:''}
+    ${t.cmv_extra>0?dreRowExpandable('CMV Adicional','var(--r)','cmv_extra',t.cmv_extra,'cmv')+'<tr class="sub"><td class="lbl">= MC após CMV adicional</td><td class="num '+(mc_liq>=0?'g':'r')+'">'+(mc_liq>=0?fF(mc_liq):'('+fF(mc_liq)+')')+'</td><td class="pct">'+pc(mc_liq,fat)+'</td></tr>'  :''}
+    ${t.variavel>0?dreRowExpandable('Despesas Variáveis','var(--y)','variavel',t.variavel,'var'):''}
+    ${t.fixo>0?dreRowExpandable('Despesas Fixas','var(--b)','fixo',t.fixo,'fix'):''}
     ${(t.variavel+t.fixo)>0?`<tr class="sub"><td class="lbl">= EBITDA${hasPend?' ⏳':''}</td><td class="num ${ebt>=0?'g':'r'}">${ebt>=0?fF(ebt):'('+fF(ebt)+')'}</td><td class="pct">${pc(ebt,fat)}</td></tr>`:'<tr><td class="lbl i" style="color:var(--ink4)" colspan="3">← adicione lançamentos</td></tr>'}
-    ${t.depreciacao>0?`<tr><td class="lbl i">(-) Depreciação</td><td class="num r">(${fF(t.depreciacao)})</td><td class="pct">${pc(t.depreciacao,fat)}</td></tr>`:''}
-    ${t.financeiro>0?`<tr><td class="lbl i">(-) Desp. Financeiras</td><td class="num r">(${fF(t.financeiro)})</td><td class="pct">${pc(t.financeiro,fat)}</td></tr>`:''}
-    ${t.ir>0?`<tr><td class="lbl i">(-) IRPJ / CSLL (DIFAL)</td><td class="num r">(${fF(t.ir)})</td><td class="pct">${pc(t.ir,fat)}</td></tr>`:''}
+    ${t.depreciacao>0?dreRowExpandable('Depreciação','var(--p)','depreciacao',t.depreciacao,'dep'):''}
+    ${t.financeiro>0?dreRowExpandable('Desp. Financeiras','#be185d','financeiro',t.financeiro,'fin'):''}
+    ${t.ir>0?dreRowExpandable('IRPJ / CSLL','#0e7490','ir',t.ir,'ir'):''}
     ${t.total>0?`<tr class="tot"><td class="lbl">= Lucro Líquido${hasPend?' ⏳':''}</td><td class="num" style="color:${ll>=0?'#16a34a':'#c8273f'};font-family:'DM Mono',monospace">${ll>=0?fF(ll):'('+fF(ll)+')'}</td><td class="pct">${pc(ll,fat)}</td></tr>`:''}
     </tbody>`;
   const wfi=[{lbl:'Faturamento bruto',v:fat,col:'#0d9b6b33',vc:'var(--g)'},{lbl:'(-) Custo produto',v:cons.custo||0,col:'#c8273f33',vc:'var(--r)',neg:true},{lbl:'(-) Encargos canal',v:cons.encargos||0,col:'#b86e0033',vc:'var(--y)',neg:true},{lbl:'= Margem Contribuição',v:mc,col:'#b86e0055',vc:'var(--y)',bold:true}];
