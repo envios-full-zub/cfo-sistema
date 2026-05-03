@@ -930,19 +930,78 @@ async function renderDashboard() {
   llEl.textContent=t.total>0?fK(ll):'—'; llEl.style.color=t.total>0?(ll>=0?'var(--g)':'var(--r)'):'var(--ink4)';
   document.getElementById('db-ll-s').textContent=t.total>0?(hasPend?'⏳ parcial':pll.toFixed(1)+'% margem líquida'):'lance as despesas';
 
-  // WF
+  // WF — com detalhamento expansível por linha
+  // Função para gerar sub-linhas dos lançamentos
+  function wfDetail(dreKey, cor, encargosObj){
+    if(dreKey==='encargos'){
+      // Encargos do canal — vem dos dados do mês, não dos lançamentos
+      const linhas=[];
+      if(encargosObj.imp>0)linhas.push({d:'Imposto s/ venda',v:encargosObj.imp});
+      if(encargosObj.tar>0)linhas.push({d:'Tarifa de venda',v:encargosObj.tar});
+      if(encargosObj.frV>0)linhas.push({d:'Frete vendedor',v:encargosObj.frV});
+      if(encargosObj.cupom>0)linhas.push({d:'Cupom desconto',v:encargosObj.cupom});
+      if(encargosObj.afiliado>0)linhas.push({d:'Comissão afiliado',v:encargosObj.afiliado});
+      if(encargosObj.frC>0)linhas.push({d:'(-) Frete comprador',v:-encargosObj.frC,positivo:true});
+      return linhas;
+    }
+    return lancs.filter(l=>l.linha_dre===dreKey).map(l=>({d:l.descricao,v:l.valor||0}));
+  }
+
+  function wfRow(it, id, detalhe){
+    const uid_row='wfr_'+id;
+    const hasDetail=detalhe&&detalhe.length>0;
+    const subHtml=hasDetail?detalhe.map(s=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 14px 5px 28px;font-size:11px;border-bottom:1px solid var(--line);background:#fafaf8">
+        <span style="color:var(--ink3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.d}</span>
+        <span style="font-family:'DM Mono',monospace;color:${s.positivo?'var(--g)':'var(--r)'};flex-shrink:0;margin-left:12px">${s.positivo?'+'+fF(s.v):'('+fF(s.v)+')'}</span>
+      </div>`).join('')+'<div style="display:flex;justify-content:space-between;padding:5px 14px 5px 28px;font-size:11px;background:#f5f4f0;font-weight:600"><span style="color:var(--ink2)">Total</span><span style="font-family:\'DM Mono\',monospace;color:'+it.vc+'">('+fF(it.v)+')</span></div>'
+    :'';
+    return`<div>
+      <div class="wf" style="cursor:${hasDetail?'pointer':'default'};padding:${hasDetail?'6px 8px':'0'};border-radius:${hasDetail?'7px':'0'};transition:background .15s;${hasDetail?'margin:2px 0':''}"
+        ${hasDetail?`onclick="(function(){var b=document.getElementById('${uid_row}');var a=document.getElementById('${uid_row}_arr');var o=b.style.display==='none';b.style.display=o?'block':'none';a.style.transform=o?'rotate(90deg)':'rotate(0deg)';})()"`:''}>
+        <div class="wf-lbl" style="${it.bold?'font-weight:600;color:var(--ink)':''}">${it.lbl}</div>
+        <div class="wf-track"><div class="wf-fill" style="width:${Math.max(1,Math.abs(it.v)/fat*100).toFixed(1)}%;background:${it.col}"></div></div>
+        <div class="wf-val" style="color:${it.vc};font-weight:${it.bold?600:400}">${it.neg?'('+fF(it.v)+')':fF(it.v)}</div>
+        <div class="wf-pct">${pc(Math.abs(it.v),fat)}</div>
+        ${hasDetail?`<div id="${uid_row}_arr" style="font-size:10px;color:var(--ink4);margin-left:6px;transition:transform .2s;flex-shrink:0">▶</div>`:''}
+      </div>
+      ${hasDetail?`<div id="${uid_row}" style="display:none;border:1px solid var(--line);border-radius:0 0 8px 8px;overflow:hidden;margin-top:-4px">${subHtml}</div>`:''}
+    </div>`;
+  }
+
+  const encObj={
+    imp: dados.imp||0, tar: dados.tar||0, frV: dados.frV||0, frC: dados.frC||0,
+    cupom: dados.canal==='sh'?(mesesC.find(m=>m.canal==='sh')?.estrutura?.cupom||0):0,
+    afiliado: dados.canal==='sh'?(mesesC.find(m=>m.canal==='sh')?.estrutura?.afiliado||0):0,
+  };
+  // Para consolidado, somar encargos de todos os canais
+  if(canalAtivo==='todos'){
+    encObj.imp=mesesC.reduce((s,m)=>s+(m.imp||0),0);
+    encObj.tar=mesesC.reduce((s,m)=>s+(m.tar||0),0);
+    encObj.frV=mesesC.reduce((s,m)=>s+(m.frV||0),0);
+    encObj.frC=mesesC.reduce((s,m)=>s+(m.frC||0),0);
+    const shM=mesesC.find(m=>m.canal==='sh');
+    if(shM){encObj.cupom=shM.estrutura?.cupom||0;encObj.afiliado=shM.estrutura?.afiliado||0;}
+  }
+
   const wfI=[
-    {lbl:'Faturamento bruto',v:fat,col:'#0d9b6b33',vc:'var(--g)'},
-    {lbl:'(-) Custo produto',v:dados.custo||0,col:'#c8273f33',vc:'var(--r)',neg:true},
-    {lbl:'(-) Encargos canal',v:dados.encargos||0,col:'#b86e0033',vc:'var(--y)',neg:true},
-    {lbl:'= Margem Contribuição',v:mc,col:'#b86e0055',vc:'var(--y)',bold:true},
+    {lbl:'Faturamento bruto',v:fat,col:'#0d9b6b33',vc:'var(--g)',key:null},
+    {lbl:'(-) Custo produto',v:dados.custo||0,col:'#c8273f33',vc:'var(--r)',neg:true,key:null},
+    {lbl:'(-) Encargos canal',v:dados.encargos||0,col:'#b86e0033',vc:'var(--y)',neg:true,key:'encargos'},
+    {lbl:'= Margem Contribuição',v:mc,col:'#b86e0055',vc:'var(--y)',bold:true,key:null},
   ];
-  if(t.cmv_extra>0)wfI.push({lbl:'(-) CMV adicional',v:t.cmv_extra,col:'#c8273f22',vc:'var(--r)',neg:true});
-  if(t.variavel>0)wfI.push({lbl:'(-) Desp. variáveis',v:t.variavel,col:'#b86e0022',vc:'var(--y)',neg:true});
-  if(t.fixo>0)wfI.push({lbl:'(-) Desp. fixas',v:t.fixo,col:'#1d4ed822',vc:'var(--b)',neg:true});
-  if(t.ir>0)wfI.push({lbl:'(-) IRPJ/CSLL',v:t.ir,col:'#5b21b622',vc:'var(--p)',neg:true});
-  if(t.total>0)wfI.push({lbl:'= Lucro Líquido',v:ll,col:ll>=0?'#0d9b6b44':'#c8273f44',vc:ll>=0?'var(--g)':'var(--r)',bold:true});
-  document.getElementById('db-wf').innerHTML=wfI.map(it=>`<div class="wf"><div class="wf-lbl" style="${it.bold?'font-weight:600;color:var(--ink)':''}">${it.lbl}</div><div class="wf-track"><div class="wf-fill" style="width:${Math.max(1,Math.abs(it.v)/fat*100).toFixed(1)}%;background:${it.col}"></div></div><div class="wf-val" style="color:${it.vc};font-weight:${it.bold?600:400}">${it.neg?'('+fF(it.v)+')':fF(it.v)}</div><div class="wf-pct">${pc(Math.abs(it.v),fat)}</div></div>`).join('');
+  if(t.cmv_extra>0)wfI.push({lbl:'(-) CMV adicional',v:t.cmv_extra,col:'#c8273f22',vc:'var(--r)',neg:true,key:'cmv_extra'});
+  if(t.variavel>0)wfI.push({lbl:'(-) Desp. variáveis',v:t.variavel,col:'#b86e0022',vc:'var(--y)',neg:true,key:'variavel'});
+  if(t.fixo>0)wfI.push({lbl:'(-) Desp. fixas',v:t.fixo,col:'#1d4ed822',vc:'var(--b)',neg:true,key:'fixo'});
+  if(t.ir>0)wfI.push({lbl:'(-) IRPJ/CSLL',v:t.ir,col:'#5b21b622',vc:'var(--p)',neg:true,key:'ir'});
+  if(t.depreciacao>0)wfI.push({lbl:'(-) Depreciação',v:t.depreciacao,col:'#5b21b622',vc:'var(--p)',neg:true,key:'depreciacao'});
+  if(t.financeiro>0)wfI.push({lbl:'(-) Desp. financeiras',v:t.financeiro,col:'#be185d22',vc:'#be185d',neg:true,key:'financeiro'});
+  if(t.total>0)wfI.push({lbl:'= Lucro Líquido',v:ll,col:ll>=0?'#0d9b6b44':'#c8273f44',vc:ll>=0?'var(--g)':'var(--r)',bold:true,key:null});
+
+  document.getElementById('db-wf').innerHTML=wfI.map((it,i)=>{
+    const detalhe=it.key?wfDetail(it.key,it.vc,encObj):null;
+    return wfRow(it,i,detalhe);
+  }).join('');
   // Resumo fechado da cascata
   setAccSummary('acc-wf-summary',`<span style="font-size:11px;color:var(--ink4)">Fat. <strong style="color:var(--g)">${fK(fat)}</strong> → MC <strong style="color:var(--y)">${fK(mc)} (${pc(mc,fat)})</strong>${t.total>0?' → LL <strong style="color:'+(ll>=0?'var(--g)':'var(--r)')+'">'+fK(ll)+'</strong>':''}</span>`);
 
