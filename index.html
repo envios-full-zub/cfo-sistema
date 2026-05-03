@@ -114,6 +114,19 @@ body{font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--paper);-
 
 /* CARD */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow)}
+/* ACCORDION */
+.acc-header{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;transition:background .15s;flex-wrap:wrap;gap:6px}
+.acc-header:hover{background:var(--card2)}
+.acc-header .ct{font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em}
+.acc-arrow{font-size:12px;color:var(--ink4);transition:transform .25s;flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center}
+.acc-arrow.open{transform:rotate(90deg)}
+.acc-body{display:none;padding:18px;border-top:1px solid var(--line)}
+.acc-body.open{display:block}
+.acc-summary{padding:10px 18px 14px;font-size:13px;color:var(--ink2);font-weight:500;border-top:1px solid var(--line);background:var(--card2);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.acc-summary .acc-vals{display:flex;gap:16px;flex-wrap:wrap}
+.acc-summary .acc-val-item{display:flex;flex-direction:column;align-items:flex-end}
+.acc-summary .acc-val-item span:first-child{font-size:10px;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
+.acc-summary .acc-val-item span:last-child{font-size:14px;font-family:'Instrument Serif',serif;font-weight:400}
 .ch{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
 .ct{font-size:11px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em}
 .cs{font-size:11px;color:var(--ink4)}
@@ -351,12 +364,66 @@ body{font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--paper);-
           </div>
           <div class="g2">
             <div>
-              <div class="card"><div class="ch"><span class="ct">Cascata de Resultado</span><span class="cs" id="db-canal-label">Consolidado</span></div><div class="cb" id="db-wf"></div></div>
-              <div class="card"><div class="ch"><span class="ct">Saúde Financeira</span></div><div class="cb" id="db-saude"></div></div>
+              <!-- CASCATA ACCORDION -->
+              <div class="card">
+                <div class="acc-header" onclick="toggleAcc('acc-wf')">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span class="ct">Cascata de Resultado</span>
+                    <span class="cs" id="db-canal-label">Consolidado</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div id="acc-wf-summary" style="display:flex;gap:12px"></div>
+                    <div class="acc-arrow" id="acc-wf-arrow">▶</div>
+                  </div>
+                </div>
+                <div class="acc-body" id="acc-wf">
+                  <div id="db-wf"></div>
+                </div>
+              </div>
+              <!-- SAÚDE ACCORDION -->
+              <div class="card">
+                <div class="acc-header" onclick="toggleAcc('acc-saude')">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span class="ct">Saúde Financeira</span>
+                    <span class="cs" id="db-saude-summary-txt">—</span>
+                  </div>
+                  <div class="acc-arrow" id="acc-saude-arrow">▶</div>
+                </div>
+                <div class="acc-body" id="acc-saude">
+                  <div id="db-saude"></div>
+                </div>
+              </div>
             </div>
             <div>
-              <div class="card"><div class="ch"><span class="ct">Resumo por Canal</span><span class="cs" id="db-mes-label">—</span></div><div class="cb" id="db-canais"></div></div>
-              <div class="card"><div class="ch"><span class="ct">Diagnóstico CFO</span></div><div class="cb" id="db-insights"></div></div>
+              <!-- RESUMO POR CANAL ACCORDION -->
+              <div class="card">
+                <div class="acc-header" onclick="toggleAcc('acc-canais')">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span class="ct">Resumo por Canal</span>
+                    <span class="cs" id="db-mes-label">—</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div id="acc-canais-summary" style="display:flex;gap:12px"></div>
+                    <div class="acc-arrow" id="acc-canais-arrow">▶</div>
+                  </div>
+                </div>
+                <div class="acc-body" id="acc-canais">
+                  <div id="db-canais"></div>
+                </div>
+              </div>
+              <!-- DIAGNÓSTICO ACCORDION -->
+              <div class="card">
+                <div class="acc-header" onclick="toggleAcc('acc-insights')">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span class="ct">Diagnóstico CFO</span>
+                    <span class="cs" id="db-insights-summary">—</span>
+                  </div>
+                  <div class="acc-arrow" id="acc-insights-arrow">▶</div>
+                </div>
+                <div class="acc-body" id="acc-insights">
+                  <div id="db-insights"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -655,6 +722,8 @@ function pc(v,b){return b?((v/b)*100).toFixed(1)+'%':'—';}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 function notify(m,t='info'){const n=document.getElementById('notif');n.textContent=m;n.className='notif '+t+' show';setTimeout(()=>n.classList.remove('show'),3200);}
 function loading(show){document.getElementById('loadingOverlay').style.display=show?'flex':'none';}
+function toggleAcc(id){const body=document.getElementById(id);const arrow=document.getElementById(id+'-arrow');if(!body)return;const isOpen=body.classList.contains('open');body.classList.toggle('open',!isOpen);if(arrow)arrow.classList.toggle('open',!isOpen);}
+function setAccSummary(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
 
 // ══════════════════════════════════════════════
 // AUTH
@@ -839,6 +908,11 @@ async function renderDashboard() {
   document.getElementById('db-sub').textContent=ci.emoji+' '+ci.label+' · '+(dados.nPed||0).toLocaleString('pt-BR')+' pedidos';
   document.getElementById('db-canal-label').textContent=ci.label;
   document.getElementById('db-mes-label').textContent=dados.comp;
+  // Fechar todos accordions ao trocar mês/canal
+  ['acc-wf','acc-saude','acc-canais','acc-insights'].forEach(id=>{
+    const b=document.getElementById(id); const a=document.getElementById(id+'-arrow');
+    if(b)b.classList.remove('open'); if(a)a.classList.remove('open');
+  });
 
   const sp=document.getElementById('db-status');
   sp.textContent=hasPend?'⏳ Parcial':t.total>0?(ll>=0?'✓ Positivo':'⚠ Negativo'):'Sem despesas';
@@ -869,8 +943,12 @@ async function renderDashboard() {
   if(t.ir>0)wfI.push({lbl:'(-) IRPJ/CSLL',v:t.ir,col:'#5b21b622',vc:'var(--p)',neg:true});
   if(t.total>0)wfI.push({lbl:'= Lucro Líquido',v:ll,col:ll>=0?'#0d9b6b44':'#c8273f44',vc:ll>=0?'var(--g)':'var(--r)',bold:true});
   document.getElementById('db-wf').innerHTML=wfI.map(it=>`<div class="wf"><div class="wf-lbl" style="${it.bold?'font-weight:600;color:var(--ink)':''}">${it.lbl}</div><div class="wf-track"><div class="wf-fill" style="width:${Math.max(1,Math.abs(it.v)/fat*100).toFixed(1)}%;background:${it.col}"></div></div><div class="wf-val" style="color:${it.vc};font-weight:${it.bold?600:400}">${it.neg?'('+fF(it.v)+')':fF(it.v)}</div><div class="wf-pct">${pc(Math.abs(it.v),fat)}</div></div>`).join('');
+  // Resumo fechado da cascata
+  setAccSummary('acc-wf-summary',`<span style="font-size:11px;color:var(--ink4)">Fat. <strong style="color:var(--g)">${fK(fat)}</strong> → MC <strong style="color:var(--y)">${fK(mc)} (${pc(mc,fat)})</strong>${t.total>0?' → LL <strong style="color:'+(ll>=0?'var(--g)':'var(--r)')+'">'+fK(ll)+'</strong>':''}</span>`);
 
   // Saúde
+  const saudeSummary=`MC ${pc(mc,fat)} · Custo ${pc(dados.custo||0,fat)}${t.total>0?' · Margem Líq. '+pll.toFixed(1)+'%':''}`;
+  const elSaudeSum=document.getElementById('db-saude-summary-txt');if(elSaudeSum)elSaudeSum.textContent=saudeSummary;
   document.getElementById('db-saude').innerHTML=`
     <div class="hb-row"><div class="hb-top"><span>MC / Faturamento</span><span style="color:var(--y);font-family:'DM Mono',monospace">${pc(mc,fat)}</span></div><div class="hb"><div class="hbf" style="width:${Math.min(100,mc/fat*100*4).toFixed(0)}%;background:${mc/fat>0.25?'var(--g)':mc/fat>0.15?'var(--y)':'var(--r)'}"></div></div><div class="hb-note">Meta 25%</div></div>
     <div class="hb-row"><div class="hb-top"><span>Custo / Faturamento</span><span style="color:var(--r);font-family:'DM Mono',monospace">${pc(dados.custo||0,fat)}</span></div><div class="hb"><div class="hbf" style="width:${Math.min(100,(dados.custo||0)/fat*100).toFixed(0)}%;background:var(--r)"></div></div><div class="hb-note">Meta &lt;45%</div></div>
@@ -887,6 +965,8 @@ async function renderDashboard() {
       <div style="height:4px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden;margin-top:10px"><div style="height:100%;width:${pf.toFixed(0)}%;background:${ci2.darkColor}88;border-radius:2px"></div></div>
     </div>`;
   }).join('')+(mesesC.length===1?'<div style="font-size:11px;color:var(--ink4);padding:10px;background:var(--card2);border-radius:8px">Importe mais canais para comparativo.</div>':'');
+  // Resumo fechado dos canais
+  setAccSummary('acc-canais-summary', mesesC.map(m=>{const ci2=CANAL_INFO[m.canal]||CANAL_INFO.todos;return`<span style="font-size:11px;color:${ci2.darkColor}">${ci2.emoji} ${fK(m.fat)} <span style="opacity:.6">${pc(m.mc,m.fat)}</span></span>`;}).join('<span style="color:var(--ink4);margin:0 2px">·</span>'));
 
   // Insights
   const ins=[];
@@ -901,6 +981,10 @@ async function renderDashboard() {
   if(t.total>0){if(ll<0)ins.push({t:'r',i:'🔴',m:`Resultado negativo: (${fK(Math.abs(ll))}). Despesas superam MC.`});else ins.push({t:'g',i:'✅',m:`Lucro ${fK(ll)} (${pll.toFixed(1)}% margem líquida).`});}
   else ins.push({t:'b',i:'📋',m:'Lance as despesas operacionais para fechar o DRE.'});
   document.getElementById('db-insights').innerHTML=ins.map(i=>`<div class="ins ${i.t}"><span style="font-size:14px;flex-shrink:0">${i.i}</span><div>${i.m}</div></div>`).join('');
+  // Resumo fechado do diagnóstico
+  const firstIns=ins[0];
+  const elInsSum=document.getElementById('db-insights-summary');
+  if(elInsSum&&firstIns)elInsSum.textContent=firstIns.i+' '+firstIns.m.substring(0,60)+(firstIns.m.length>60?'…':'');
 }
 
 // ══════════════════════════════════════════════
