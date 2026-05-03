@@ -83,7 +83,7 @@ if (seed.n === 0) {
 
 app.use(express.json({ limit: '20mb' }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname)));
 
 // AUTH MIDDLEWARE
 function auth(req, res, next) {
@@ -241,6 +241,6 @@ app.put('/api/usuarios/:id/senha', auth, adminOnly, (req, res) => {
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 // SPA fallback
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.listen(PORT, () => console.log(`CFO Sistema rodando em http://localhost:${PORT}`));
