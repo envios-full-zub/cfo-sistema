@@ -1038,15 +1038,15 @@ function handleFile(e){const f=e.target.files[0];if(f)processFile(f);}
 async function processFile(file) {
   document.getElementById('filePreview').style.display='block';
   document.getElementById('fp-nome').textContent=file.name;
-  document.getElementById('fp-info').textContent='Enviando ao servidor...';
-  document.getElementById('fp-progress').style.width='30%';
+  document.getElementById('fp-info').textContent='Enviando ao servidor... aguarde, isso pode levar até 30s';
+  document.getElementById('fp-progress').style.width='30%';let _pct=30;const _pt=setInterval(()=>{if(_pct<85){_pct+=5;const pe=document.getElementById('fp-progress');if(pe)pe.style.width=_pct+'%';}},800);
   const canal=document.getElementById('imp-canal').value;
   const fd=new FormData();
   fd.append('file',file);
   fd.append('canal',canal);
   try {
     const r=await fetch('/api/import',{method:'POST',body:fd});
-    const data=await r.json();
+    const data=await r.json();clearInterval(_pt);
     if(data.error){notify(data.error,'error');return;}
     pendingData={...data.parsed,canal:data.canal};
     document.getElementById('fp-progress').style.width='100%';
@@ -1082,19 +1082,32 @@ async function salvarMes() {
   if(!pendingData){notify('Nenhum arquivo processado','error');return;}
   const comp=document.getElementById('imp-comp').value.trim();
   if(!comp){document.getElementById('imp-comp').classList.add('err');notify('Informe a competência','error');return;}
-  loading(true);
-  const id=uid();
-  const lancsBase=BASE_LANCS.map(l=>({...l,id:uid(),competencia:comp}));
-  const body={id,comp,canal:pendingData.canal,obs:document.getElementById('imp-obs').value||'',...pendingData,lancamentos:lancsBase};
-  const r=await api('POST','/api/meses',body);
-  if(r.error){notify(r.error,'error');loading(false);return;}
-  await loadMeses();
-  mesAtivoId=id;
-  updateSidebar();
-  resetImport();
-  notify(`${comp} · ${CANAL_INFO[pendingData.canal].label} salvo com ${lancsBase.length} lançamentos!`,'success');
-  loading(false);
-  setTimeout(()=>goView('lancamentos',null),400);
+  // Mostrar botão de progresso em vez de overlay bloqueante
+  const btn=document.getElementById('btnSalvar');
+  btn.textContent='Salvando...';btn.disabled=true;btn.style.opacity='.7';
+  // Timeout de segurança — desbloqueia após 15s mesmo se travar
+  const safetyTimer=setTimeout(()=>{
+    btn.textContent='Salvar mês no sistema ↗';btn.disabled=false;btn.style.opacity='1';
+    notify('Tempo esgotado — tente novamente','error');
+  },15000);
+  try{
+    const id=uid();
+    const lancsBase=BASE_LANCS.map(l=>({...l,id:uid(),competencia:comp}));
+    const body={id,comp,canal:pendingData.canal,obs:document.getElementById('imp-obs').value||'',...pendingData,lancamentos:lancsBase};
+    const r=await api('POST','/api/meses',body);
+    clearTimeout(safetyTimer);
+    if(r.error){notify(r.error,'error');btn.textContent='Salvar mês no sistema ↗';btn.disabled=false;btn.style.opacity='1';return;}
+    await loadMeses();
+    mesAtivoId=id;
+    updateSidebar();
+    resetImport();
+    notify(`${comp} · ${CANAL_INFO[pendingData.canal].label} salvo com ${lancsBase.length} lançamentos!`,'success');
+    setTimeout(()=>goView('lancamentos',null),400);
+  }catch(e){
+    clearTimeout(safetyTimer);
+    notify('Erro ao salvar: '+e.message,'error');
+    btn.textContent='Salvar mês no sistema ↗';btn.disabled=false;btn.style.opacity='1';
+  }
 }
 
 function resetImport(){
